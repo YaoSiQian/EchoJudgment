@@ -1,31 +1,50 @@
 # 《回响》技术文档 04 — 前端组件与 UI 架构
 
-> 版本: v1.0 | 日期: 2026-05-02
+> 版本: v1.1 | 日期: 2026-05-02（重写更新）
 
 ---
 
 ## 1. 布局系统
 
-### 1.1 响应式布局判断
+### 1.1 响应式布局判断 + ErrorBoundary
 
 ```tsx
 // src/app/App.tsx
-export default function App() {
-  const isWide = useMediaQuery('(min-width: 768px)')
-  return isWide ? <GameShell /> : <MobileShell />
+// 宽度 >= 1024px → GameShell（三栏）；否则 → MobileShell（手机居中）
+
+class ErrorBoundary extends Component<{children: ReactNode}, {error: Error|null}> {
+  state = { error: null }
+  static getDerivedStateFromError(e: Error) { return { error: e } }
+  componentDidCatch(error: Error, info: ErrorInfo) { console.error('[Echo]', error, info) }
+  render() {
+    if (this.state.error) return <FullScreenError onRetry={() => window.location.reload()} />
+    return this.props.children
+  }
 }
 
-function useMediaQuery(query: string) {
-  const [matches, setMatches] = useState(() => window.matchMedia(query).matches)
+export function App() {
+  const [isWide, setIsWide] = useState(() => window.innerWidth >= 1024)
+  const { isDebug } = useUIStore()
+
   useEffect(() => {
-    const mql = window.matchMedia(query)
-    const handler = (e: MediaQueryListEvent) => setMatches(e.matches)
-    mql.addEventListener('change', handler)
-    return () => mql.removeEventListener('change', handler)
-  }, [query])
-  return matches
+    const handler = () => setIsWide(window.innerWidth >= 1024)
+    window.addEventListener('resize', handler)
+    return () => window.removeEventListener('resize', handler)
+  }, [])
+
+  return (
+    <ErrorBoundary>
+      <Providers>
+        <GameInit />
+        {isDebug && <DebugPanel />}
+        {isWide ? <GameShell /> : <MobileShell />}
+      </Providers>
+    </ErrorBoundary>
+  )
 }
 ```
+
+> `ErrorBoundary` 是防止 root div 为空的关键。任何组件 throw 都会被捕获并显示恢复 UI，而非白屏。
 
 ### 1.2 横屏三栏布局（GameShell）
 
@@ -33,21 +52,31 @@ function useMediaQuery(query: string) {
 // src/components/layout/GameShell.tsx
 export function GameShell() {
   return (
-    <div className="flex h-screen w-screen bg-zinc-950 overflow-hidden">
-      {/* 左侧信息面板：固定宽度 */}
-      <aside className="w-56 flex-shrink-0 border-r border-zinc-800 flex flex-col overflow-y-auto">
+    <div style={{ background: 'linear-gradient(135deg, #0F0F1E, #1A1A2E, #16213E)' }}
+         className="flex h-screen overflow-hidden w-full">
+      {/* 背景网格纹理 */}
+      <div className="absolute inset-0 pointer-events-none" style={{
+        backgroundImage: 'linear-gradient(rgba(255,36,66,0.03) 1px, transparent 1px), ...',
+        backgroundSize: '40px 40px',
+      }} />
+
+      {/* 左侧面板：w-56 xl:w-64 + glassmorphism */}
+      <div className="hidden lg:flex w-56 xl:w-64 flex-shrink-0 flex-col"
+           style={{ borderRight: '1px solid rgba(255,255,255,0.06)', backdropFilter: 'blur(8px)' }}>
         <LeftPanel />
-      </aside>
+      </div>
 
-      {/* 主板块：手机模拟器，居中 */}
-      <main className="flex-1 flex items-center justify-center bg-zinc-900">
+      {/* 中央：手机帧 + 红色环境光晕 */}
+      <div className="flex-1 flex items-center justify-center relative p-4">
+        <div style={{ background: 'radial-gradient(ellipse, rgba(255,36,66,0.08), transparent)', filter: 'blur(40px)' }} />
         <PhoneFrame />
-      </main>
+      </div>
 
-      {/* 右侧信息面板：固定宽度 */}
-      <aside className="w-56 flex-shrink-0 border-l border-zinc-800 flex flex-col overflow-y-auto">
+      {/* 右侧面板：同左侧 */}
+      <div className="hidden lg:flex w-56 xl:w-64 flex-shrink-0 flex-col"
+           style={{ borderLeft: '1px solid rgba(255,255,255,0.06)', backdropFilter: 'blur(8px)' }}>
         <RightPanel />
-      </aside>
+      </div>
     </div>
   )
 }
@@ -57,72 +86,41 @@ export function GameShell() {
 
 ```tsx
 // src/components/layout/MobileShell.tsx
+// 竖屏/窄屏：仅显示手机帧，铺满黑色背景
 export function MobileShell() {
-  const [activeTab, setActiveTab] = useState<'phone' | 'status' | 'log'>('phone')
-
   return (
-    <div className="flex flex-col h-screen w-screen bg-zinc-950">
-      {/* 折叠状态栏 */}
-      {activeTab !== 'phone' && (
-        <div className="flex-1 overflow-y-auto">
-          {activeTab === 'status' ? <LeftPanel /> : <RightPanel />}
-        </div>
-      )}
-
-      {/* 手机模拟器占满剩余空间 */}
-      {activeTab === 'phone' && (
-        <div className="flex-1 flex items-center justify-center bg-zinc-900">
-          <PhoneFrame />
-        </div>
-      )}
-
-      {/* 底部Tab导航 */}
-      <nav className="h-12 flex border-t border-zinc-800">
-        {(['phone', 'status', 'log'] as const).map(tab => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`flex-1 text-xs ${activeTab === tab ? 'text-white' : 'text-zinc-500'}`}
-          >
-            {TAB_LABELS[tab]}
-          </button>
-        ))}
-      </nav>
+    <div className="flex h-screen w-full items-center justify-center" style={{ background: '#1A1A2E' }}>
+      <PhoneFrame />
     </div>
   )
 }
-
-const TAB_LABELS = { phone: '📱 手机', status: '📊 状态', log: '📋 日志' }
 ```
 
 ---
 
 ## 2. 手机模拟器（PhoneFrame）
 
-### 2.1 核心实现原则
+### 2.1 核心实现
 
 PhoneFrame 是《回响》最关键的技术组件。它必须：
-1. 保持竖屏比例（9:16或更高），无论容器如何变化
-2. 内部子组件**完全隔离于游戏 UI 体系**——只有 App 风格的界面元素
-3. 处理 App 模式切换的过渡动画
+1. 保持竖屏比例（375×812），无论容器如何变化
+2. 内部子组件完全隔离于游戏 UI 体系
+3. 顶部状态栏模拟 iOS Dynamic Island 形态
 
 ```tsx
 // src/components/phone/PhoneFrame.tsx
-import styles from './PhoneFrame.module.css'
-
 export function PhoneFrame() {
+  const gameTime = useGameStore(s => s.gameTime)
   return (
-    {/* 外部容器：维持比例 */}
     <div className={styles.phoneContainer}>
-      {/* 手机外框（可选：带圆角和边框的装饰层） */}
       <div className={styles.phoneBezel}>
-        {/* 状态栏（模拟手机状态栏） */}
+        {/* 状态栏：白底，左时间，中 Dynamic Island，右信号/电量 */}
         <div className={styles.statusBar}>
-          <span className={styles.time}>{useGameTime()}</span>
-          <span className={styles.icons}>▲ WiFi 电池</span>
+          <span style={{ fontSize: 15, fontWeight: 700 }}>{formatGameTime(gameTime)}</span>
+          <div className={styles.dynamicIsland} />  {/* 黑色胶囊 */}
+          <StatusIcons />  {/* Signal + WiFi + Battery SVG */}
         </div>
-
-        {/* App 内容区 */}
+        {/* 应用视口 */}
         <div className={styles.appViewport}>
           <XHSApp />
         </div>
@@ -135,40 +133,35 @@ export function PhoneFrame() {
 ```css
 /* PhoneFrame.module.css */
 .phoneContainer {
-  /* 关键：宽度由父容器决定，高度按比例计算 */
-  width: min(360px, 90vw);
-  aspect-ratio: 9 / 19.5;
-  position: relative;
+  width: 375px;
+  height: min(812px, calc(100vh - 40px));
+  max-height: 812px;
 }
 
 .phoneBezel {
-  width: 100%;
-  height: 100%;
-  border-radius: 2.5rem;
-  background: #111;
-  border: 2px solid #333;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
+  width: 100%; height: 100%;
+  background: #1C1C1E;
+  border-radius: 52px;
+  /* 多层投影：外框 + 高光 + 景深 */
+  box-shadow: 0 0 0 1px #000, 0 0 0 3px #3A3A3C, 0 24px 80px rgba(0,0,0,0.85);
+  display: flex; flex-direction: column;
 }
 
 .statusBar {
-  /* 模拟手机状态栏：深色，10-14px字体 */
-  height: 2.5rem;
-  background: #000;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0 1rem;
-  font-size: 0.75rem;
-  color: #fff;
-  flex-shrink: 0;
+  height: 50px; background: #fff;
+  display: flex; align-items: flex-end; justify-content: space-between;
+  padding: 0 20px 6px; position: relative;
+}
+
+.dynamicIsland {
+  position: absolute; top: 8px; left: 50%; transform: translateX(-50%);
+  width: 120px; height: 34px;
+  background: #1C1C1E; border-radius: 20px; z-index: 10;
 }
 
 .appViewport {
-  flex: 1;
-  overflow: hidden;
-  position: relative;
+  flex: 1; overflow: hidden;
+  border-radius: 0 0 48px 48px;  /* 底部圆角跟随机身 */
 }
 ```
 
@@ -176,312 +169,114 @@ export function PhoneFrame() {
 
 参考设计规范：[ui-design-guide.md](./ui-design-guide.md) §2
 
+> **图标实现**：使用 SVG path 内联图标，替代 emoji，保证清晰度与品牌一致性。
+
 ```tsx
 // src/components/phone/XHSBottomNav.tsx
-// 单 App 架构：小红书式底部 5-Tab 导航，替代原三 App 切换器
 
-type XHSTab = 'home' | 'note' | 'publish' | 'message' | 'profile'
-
-export function XHSApp() {
-  const { currentTab, chatRoomNpcId } = useUIStore()
-  // 进入聊天室时隐藏底部导航
-  const showTabBar = !chatRoomNpcId
-
+// 5 个 Tab 图标均为 SVG outline 风格（active 时描边加粗 + 背景填充）
+function IconHome({ active }: { active: boolean }) {
   return (
-    <div className="flex flex-col h-full bg-[#F5F5F5]">
-      <div className="flex-1 overflow-hidden relative">
-        <AnimatePresence mode="wait">
-          <motion.div
-            key={currentTab}
-            initial={{ opacity: 0, x: 10 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -10 }}
-            transition={{ duration: 0.15 }}
-            className="absolute inset-0"
-          >
-            {currentTab === 'home'    && <HomeScreen />}
-            {currentTab === 'note'    && <NoteScreen />}
-            {currentTab === 'message' && (chatRoomNpcId ? <ChatRoom /> : <ChatList />)}
-            {currentTab === 'profile' && <ProfileScreen />}
-          </motion.div>
-        </AnimatePresence>
-      </div>
-      {showTabBar && <XHSBottomNav />}
-    </div>
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+      <path d="M3 10.5L12 3L21 10.5V20C21 20.55 20.55 21 20 21H15V15H9V21H4C3.45 21 3 20.55 3 20V10.5Z"
+        stroke={active ? '#FF2442' : '#999'}
+        strokeWidth={active ? 2 : 1.5}
+        fill={active ? 'rgba(255,36,66,0.08)' : 'none'} />
+    </svg>
   )
 }
+// 类似：IconNote, IconMessage, IconProfile
 
-export function XHSBottomNav() {
-  const { currentTab, setCurrentTab } = useUIStore()
-
-  return (
-    <div
-      className="flex bg-white border-t"
-      style={{ borderColor: '#EBEBEB', paddingBottom: 'env(safe-area-inset-bottom)' }}
-    >
-      {/* 首页 */}
-      <TabItem id="home" label="首页" active={currentTab === 'home'} onPress={setCurrentTab} />
-      {/* 笔记 */}
-      <TabItem id="note" label="笔记" active={currentTab === 'note'} onPress={setCurrentTab} />
-      {/* 发布（圆形红色按钮） */}
-      <div className="flex-1 flex items-center justify-center">
-        <button
-          className="w-12 h-8 rounded-2xl flex items-center justify-center text-white text-xl"
-          style={{ background: 'linear-gradient(90deg, #FF2442, #FF5065)' }}
-        >＋</button>
-      </div>
-      {/* 消息 */}
-      <TabItem id="message" label="消息" active={currentTab === 'message'} onPress={setCurrentTab} />
-      {/* 我 */}
-      <TabItem id="profile" label="我" active={currentTab === 'profile'} onPress={setCurrentTab} />
-    </div>
-  )
-}
+// 中间发布按钮：48×30 px 红色渐变胶囊
+<button style={{ width: 48, height: 30, background: 'linear-gradient(90deg, #FF2442, #FF5065)', borderRadius: 15 }}>+</button>
 ```
 
 ---
 
 ## 3. 消息板块实现（原"微信模式"）
 
-> 路由：`/chatSub/room/single`  
+> 路由：消息 Tab → 会话列表 → 聊天室  
 > 组件路径：`src/components/phone/message/`
 
 ### 3.1 会话列表（ChatList）
 
-```tsx
-// src/components/phone/message/ChatList.tsx
-// 消息 Tab 首屏：显示所有 NPC 会话
+头像用角色名首字母 + 品牌色背景（无需图片资源），未读角标 `#FF2442`。
 
-export function ChatList() {
-  const npcs = useNPCStore(s => s.activeNpcs)
-  const { setChatRoomNpcId } = useUIStore()
+### 3.2 消息气泡（MessageBubble）
 
-  return (
-    <div className="h-full bg-white overflow-y-auto">
-      {/* NavBar */}
-      <div className="xhs-navbar sticky top-0 z-10 bg-white">
-        <span className="xhs-navbar__title">消息</span>
-        <div className="xhs-navbar__actions">🔍</div>
-      </div>
+| 方向 | 背景 | 圆角 |
+|------|------|------|
+| NPC（左） | `#FFFFFF` + `box-shadow: 0 1px 4px rgba(0,0,0,0.08)` | `0 12px 12px 12px` |
+| 玩家（右） | `#FFE8EC` | `12px 0 12px 12px` |
 
-      {/* 会话列表 */}
-      {npcs.map(npc => (
-        <div
-          key={npc.id}
-          className="conv-item"
-          onClick={() => setChatRoomNpcId(npc.id)}
-        >
-          <img className="conv-avatar" src={npc.avatarUrl} />
-          <div className="flex-1 min-w-0">
-            <div className="flex justify-between items-baseline">
-              <span className="conv-name">{npc.name}</span>
-              <span className="conv-time">{npc.lastMessageTime}</span>
-            </div>
-            <div className="flex justify-between items-center">
-              <p className="conv-txt truncate">{npc.lastMessagePreview}</p>
-              {npc.unreadCount > 0 && (
-                <span className="conv-tip">{npc.unreadCount}</span>
-              )}
-            </div>
-          </div>
-        </div>
-      ))}
-    </div>
-  )
-}
-```
-
-### 3.2 消息气泡（含回响注入点）
-
-```tsx
-// src/components/phone/message/MessageBubble.tsx
-// 参考 xhs-h5 msg_box / msg_body / msg_content / msg_txt 层级
-
-interface MessageBubbleProps {
-  message: ChatMessage
-  echoLevel: EchoLevel
-}
-
-export function MessageBubble({ message, echoLevel }: MessageBubbleProps) {
-  const isMe = message.sender === 'player'
-
-  return (
-    <div className={`flex gap-2 mb-3 ${isMe ? 'flex-row-reverse' : 'flex-row'} items-end`}>
-      {/* 对方头像（左侧，仅 NPC 消息显示） */}
-      {!isMe && (
-        <img
-          src={message.avatarUrl}
-          className="w-9 h-9 rounded-full flex-shrink-0"
-        />
-      )}
-
-      {/* 气泡 */}
-      <div
-        className="max-w-[70%] px-3 py-2 text-sm leading-relaxed"
-        style={{
-          background: isMe ? '#FFE8EC' : '#FFFFFF',
-          color: '#333333',
-          borderRadius: isMe ? '12px 0 12px 12px' : '0 12px 12px 12px',
-          boxShadow: isMe ? 'none' : '0 1px 4px rgba(0,0,0,0.08)',
-        }}
-      >
-        <EchoText content={message.content} echoLevel={isMe ? 0 : echoLevel} />
-      </div>
-    </div>
-  )
-}
-```
+含 `EchoText` 渲染回响异常内容；NPC 消息可点击触发 `EvaluationBar`。
 
 ### 3.3 聊天室主体（ChatRoom）
 
 ```tsx
 // src/components/phone/message/ChatRoom.tsx
-// 对应 /chatSub/room/single
-
 export function ChatRoom() {
-  const { chatRoomNpcId, setChatRoomNpcId, pendingEvaluation } = useUIStore()
-  const npc = useNPCStore(s => s.getNpc(chatRoomNpcId!))
-  const { echoLevel } = useEchoStore()
-  const messages = useChatMessages(chatRoomNpcId!)
-  const scrollRef = useRef<HTMLDivElement>(null)
+  const { generateNextMessage, isStreaming, addPlayerContext } = useNarrativeStream(npcId)
+  const [inputText, setInputText] = useState('')
+
+  // 玩家发送消息 → 加入 AI 上下文 → 触发 NPC 回复
+  function handleSend() {
+    const text = inputText.trim()
+    if (!text || isStreaming) return
+    addPlayerContext(text)
+    addMessage(npcId, { id: generateId(), npcId, role: 'player', content: text, timestamp: Date.now() })
+    setInputText('')
+    setTimeout(() => generateNextMessage(), 400)
+  }
 
   return (
-    <div className="h-full flex flex-col bg-[#F5F5F5]">
-      {/* NavBar */}
-      <div className="xhs-navbar bg-white flex-shrink-0">
-        <button className="xhs-navbar__back" onClick={() => setChatRoomNpcId(null)}>‹</button>
-        <span className="xhs-navbar__title">{npc?.name}</span>
-        <button className="xhs-navbar__actions">···</button>
-      </div>
+    <div className="flex flex-col h-full">
+      {/* NavBar：SVG 返回箭头 + NPC 名 + "正在输入…" 状态 + SVG 三点 */}
+      <NavBar npc={npc} isStreaming={isStreaming} onBack={() => setChatRoomNpcId(null)} />
 
       {/* 消息滚动区 */}
-      <div ref={scrollRef} className="flex-1 overflow-y-auto px-4 py-3 space-y-1">
-        {messages.map(msg => (
-          <MessageBubble key={msg.id} message={msg} echoLevel={echoLevel} />
-        ))}
+      <div ref={scrollRef} className="flex-1 overflow-y-auto">
+        {messages.map(msg => <MessageBubble ... />)}
+        {isStreaming && <TypingIndicator />}
       </div>
 
-      {/* 评价按钮区（契机时滑入，覆盖输入区上方） */}
-      <EvaluationBar opportunity={pendingEvaluation} onEvaluate={handleEvaluate} />
+      {/* 评价栏（契机时显示，覆盖输入区） */}
+      {showEvalBar && <EvaluationBar />}
 
-      {/* 输入区（参考 xhs-h5 input-area） */}
-      <div className="chat-input-area flex-shrink-0">
-        <button className="text-[#999] text-xl">🎤</button>
-        <div className="chat-input flex-1 bg-white rounded-full border px-4 py-2 text-sm text-[#CCC]">
-          {/* 游戏中无真实输入，选项通过 DecisionOverlay 呈现 */}
-          请输入消息...
+      {/* 输入区（评价栏出现时隐藏） */}
+      {!showEvalBar && (
+        <div className="chat-input-area" style={{ padding: '8px 12px', borderTop: '0.5px solid #EBEBEB', background: '#FAFAFA' }}>
+          <IconEmoji />
+          <input
+            value={inputText} onChange={e => setInputText(e.target.value)}
+            placeholder={isStreaming ? '对方正在输入…' : '说点什么…'}
+            style={{ flex: 1, height: 36, borderRadius: 18, border: '1px solid #EBEBEB' }}
+          />
+          {inputText ? <IconSend onClick={handleSend} /> : <IconPlus />}
         </div>
-        <button className="text-[#999] text-xl">😊</button>
-        <button className="text-[#999] text-xl">＋</button>
-      </div>
-
-      {/* 抉择覆盖层 */}
-      <DecisionOverlay />
+      )}
     </div>
   )
 }
 ```
 
+> 输入区功能：玩家消息通过 `addPlayerContext` 注入 AI 上下文，再调用 `generateNextMessage()` 触发 NPC 动态回应。
+
 ### 3.4 回响文字渲染（EchoText）
 
-```tsx
-// src/components/shared/EchoText.tsx
-
-interface EchoTextProps {
-  content: string
-  echoLevel: EchoLevel
-}
-
-export function EchoText({ content, echoLevel }: EchoTextProps) {
-  if (echoLevel === 0) return <span>{content}</span>
-  if (echoLevel === 1) return <span className="echo-lv1">{content}</span>
-  if (echoLevel === 2) {
-    const highlighted = highlightEchoWords(content)
-    return <span className="echo-lv2" dangerouslySetInnerHTML={{ __html: highlighted }} />
-  }
-  return (
-    <span className={`echo-lv${echoLevel}`} data-content={content}>{content}</span>
-  )
-}
-
-// global.css
-// .echo-lv1 { letter-spacing: 0.01em; }
-// .echo-lv2 em { color: #555; }
-// .echo-lv3 { animation: echo-flicker 4s infinite; }
-// .echo-lv4 { animation: echo-glitch 2s infinite; }
-```
+`EchoText` 接收 `text + level + variant`，根据等级注入不同 CSS 动画类：
+- Lv1: `.echo-lv1`（字间距微颤）
+- Lv2: `.echo-lv2`（文字变红）
+- Lv3: `.echo-lv3`（glitch 动画）
+- Lv4: `.echo-lv4`（storm 动画）
 
 ### 3.5 评价按钮区（EvaluationBar）
 
-```tsx
-// src/components/phone/message/EvaluationBar.tsx
-// 评价按钮在「契机」时从底部滑入，位于输入区上方
+位置：聊天室 `position: absolute; bottom: 0`，从 `y: 100%` 滑入。支持 `binary / star5 / score10` 三种评价类型，由 AI 输出中的 `evalOpportunity.types` 字段决定。
 
-export function EvaluationBar({ opportunity, onEvaluate }: EvaluationBarProps) {
-  const { startTracking, stopTracking } = useInteractionTracking()
+### 3.6 抉择覆盖层（DecisionOverlay）
 
-  return (
-    <AnimatePresence>
-      {opportunity && (
-        <motion.div
-          initial={{ y: '100%' }}
-          animate={{ y: 0 }}
-          exit={{ y: '100%' }}
-          transition={{ type: 'spring', stiffness: 300, damping: 30 }}
-          className="bg-white px-4 py-3"
-          style={{ borderTop: '0.5px solid #EBEBEB', borderRadius: '12px 12px 0 0' }}
-          onMouseEnter={startTracking}
-          onMouseLeave={stopTracking}
-        >
-          <p className="text-xs text-[#999] mb-2 text-center">{opportunity.prompt}</p>
-          {opportunity.type === 'binary'  && <BinaryEvalButtons onSelect={onEvaluate} />}
-          {opportunity.type === 'star5'   && <StarRating onSelect={onEvaluate} />}
-          {opportunity.type === 'score10' && <ScoreSlider onSelect={onEvaluate} />}
-        </motion.div>
-      )}
-    </AnimatePresence>
-  )
-}
-```
-
-### 3.6 抉择覆��层（DecisionOverlay）
-
-```tsx
-// src/components/phone/message/DecisionOverlay.tsx
-
-export function DecisionOverlay() {
-  const { pendingDecision, clearDecision } = useUIStore()
-  if (!pendingDecision) return null
-
-  return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      className="absolute inset-0 z-50 flex flex-col items-center justify-center p-6"
-      style={{ background: 'rgba(0,0,0,0.85)' }}
-    >
-      <p className="text-white text-center text-sm opacity-60 mb-2">
-        {pendingDecision.context}
-      </p>
-      <h3 className="text-white text-center font-medium mb-8 leading-relaxed">
-        {pendingDecision.question}
-      </h3>
-      <div className="flex flex-col gap-3 w-full">
-        {pendingDecision.options.map(option => (
-          <button
-            key={option.id}
-            onClick={() => handleChoose(option.id)}
-            className="w-full py-3 px-4 text-white text-sm rounded-lg text-left"
-            style={{ background: '#2A2A2A' }}
-          >
-            {option.text}
-          </button>
-        ))}
-      </div>
-    </motion.div>
-  )
-}
-```
+`position: absolute; inset: 0; background: rgba(0,0,0,0.85)`，含倒计时红色进度条 + 选项按钮列表。倒计时归零自动选择第一项。
 
 ---
 
@@ -490,117 +285,43 @@ export function DecisionOverlay() {
 > 路由：首页 → 推荐 Tab  
 > 组件路径：`src/components/phone/home/`
 
-### 4.1 首页顶栏 + 推荐/关注 Tab 切换
+### 4.1 首页顶栏 + 推荐/关注 Tab 切换（HomeScreen）
 
 ```tsx
 // src/components/phone/home/HomeScreen.tsx
+// 顶部：左 SVG 搜索图标 | 中 推荐/关注 Tab（framer-motion layoutId 下划线）| 右 SVG 铃铛
 
-export function HomeScreen() {
-  const { homeSubTab, setHomeSubTab } = useUIStore()
-
-  return (
-    <div className="h-full flex flex-col bg-[#F5F5F5]">
-      {/* 顶部：Logo + 推荐|关注 + 搜索通知 */}
-      <div
-        className="flex items-center px-4 py-2 bg-white flex-shrink-0"
-        style={{ borderBottom: '0.5px solid #F0F0F0' }}
-      >
-        <span className="text-base font-bold" style={{ color: '#FF2442' }}>小红书</span>
-        <div className="flex gap-4 mx-4">
-          {(['discover', 'following'] as const).map(tab => (
-            <button
-              key={tab}
-              onClick={() => setHomeSubTab(tab)}
-              className="relative text-base pb-1"
-              style={{
-                fontWeight: homeSubTab === tab ? 600 : 400,
-                color: homeSubTab === tab ? '#333' : '#999',
-              }}
-            >
-              {tab === 'discover' ? '推荐' : '关注'}
-              {homeSubTab === tab && (
-                <span
-                  className="absolute bottom-0 left-1/2 -translate-x-1/2 h-0.5 w-5 rounded-full"
-                  style={{ background: '#FF2442' }}
-                />
-              )}
-            </button>
-          ))}
-        </div>
-        <div className="ml-auto flex gap-3 text-lg" style={{ color: '#666' }}>
-          <span>🔍</span><span>🔔</span>
-        </div>
-      </div>
-
-      {/* 内容区 */}
-      <div className="flex-1 overflow-hidden">
-        {homeSubTab === 'discover' ? <DiscoverFeed /> : <FollowingFeed />}
-      </div>
-    </div>
-  )
-}
+// Tab 激活样式
+{isActive && (
+  <motion.span
+    layoutId="home-tab-bar"
+    style={{ bottom: 6, width: 20, height: 3, background: '#FF2442' }}
+    transition={{ type: 'spring', stiffness: 500, damping: 35 }}
+  />
+)}
 ```
 
 ### 4.2 瀑布流（DiscoverFeed）
 
-```tsx
-// src/components/phone/home/DiscoverFeed.tsx
+```css
+/* src/index.css */
+.waterfall-grid { column-count: 2; column-gap: 8px; }
+.waterfall-item  { break-inside: avoid; margin-bottom: 8px; }
+```
 
-export function DiscoverFeed() {
-  const posts = useDiscoverPosts()  // 从 npcStore + echoStore 派生
-  const { echoLevel } = useEchoStore()
+PostCard 用渐变色板替代真实图片，图片高度基于 `post.id` 字符码值确定性派生（120–200px）。
 
-  return (
-    <div
-      className="h-full overflow-y-auto p-2"
-      style={{ columnCount: 2, columnGap: '8px' }}
-    >
-      {posts.map(post => (
-        <PostCard key={post.id} post={post} echoLevel={echoLevel} />
-      ))}
-    </div>
-  )
-}
+### 4.3 占位图渐变色板
 
-// src/components/phone/home/PostCard.tsx
-const COLOR_PALETTE = [
-  ['#FFD1DC', '#FFAEC9'], ['#D1E8FF', '#A8D1FF'],
-  ['#D4F1D4', '#A8E6A8'], ['#FFF3CD', '#FFE59A'],
-  ['#E8D5F5', '#D1A8E8'], ['#FFD9B3', '#FFBF7F'],
+```typescript
+const GRADIENTS = [
+  'from-[#FFD1DC] to-[#FFAEC9]',  // 浅粉
+  'from-[#B5EAEA] to-[#88D8D8]',  // 青蓝
+  'from-[#DDD6F3] to-[#FAACA8]',  // 紫粉
+  'from-[#C6FFDD] to-[#F7797D]',  // 绿红
+  'from-[#FEE140] to-[#FA709A]',  // 黄粉
+  'from-[#A1C4FD] to-[#C2E9FB]',  // 天蓝
 ]
-
-export function PostCard({ post, echoLevel }: { post: XHSPost, echoLevel: EchoLevel }) {
-  const [c1, c2] = COLOR_PALETTE[post.colorIndex % COLOR_PALETTE.length]
-  return (
-    <div
-      className="rounded-xl overflow-hidden mb-2"
-      style={{ background: '#fff', boxShadow: '0 1px 4px rgba(0,0,0,0.06)', breakInside: 'avoid' }}
-    >
-      {/* 图像区（渐变占位，无需真实图片 API） */}
-      <div
-        className="w-full flex items-center justify-center p-3 text-xs text-center"
-        style={{
-          background: `linear-gradient(135deg, ${c1}, ${c2})`,
-          aspectRatio: post.aspectRatio,
-          color: '#666',
-        }}
-      >
-        {post.imageDescription}
-      </div>
-      {/* 文字区 */}
-      <div className="p-2">
-        <p className="text-xs leading-relaxed line-clamp-3" style={{ color: '#333' }}>
-          <EchoText content={post.content} echoLevel={echoLevel} />
-        </p>
-        <div className="flex items-center gap-1 mt-2">
-          <img src={post.authorAvatar} className="w-4 h-4 rounded-full" />
-          <span className="text-xs flex-1" style={{ color: '#999' }}>{post.authorName}</span>
-          <span className="text-xs" style={{ color: '#999' }}>♡ {post.likes}</span>
-        </div>
-      </div>
-    </div>
-  )
-}
 ```
 
 ---
@@ -614,178 +335,28 @@ export function PostCard({ post, echoLevel }: { post: XHSPost, echoLevel: EchoLe
 
 ### 5.1 关注信息流（FollowingFeed）
 
-```tsx
-// src/components/phone/home/FollowingFeed.tsx
-
-export function FollowingFeed() {
-  const posts = useFollowingPosts()  // 锡陵晚报帖子 + 少量 NPC 帖子，时间线排序
-
-  return (
-    <div className="h-full overflow-y-auto bg-[#F5F5F5]">
-      {posts.map(post =>
-        post.isNewsPost
-          ? <NewsPost key={post.id} post={post as NewsPost} />
-          : <PostCard key={post.id} post={post as XHSPost} echoLevel={post.echoLevel} />
-      )}
-    </div>
-  )
-}
-```
+新闻帖子（NewsPost）+ NPC 帖子（PostCard）按时间戳倒序混合排列，垂直单列。
 
 ### 5.2 锡陵晚报帖子卡片（NewsPost）
 
-```tsx
-// src/components/phone/home/NewsPost.tsx
-
-export function NewsPost({ post }: { post: NewsPost }) {
-  const { echoLevel } = useEchoStore()
-
-  return (
-    <div className="bg-white mb-2" style={{ borderRadius: '0' }}>
-      {/* 新闻配图（深色渐变，新闻感） */}
-      <div
-        className="w-full flex items-end justify-start p-3"
-        style={{
-          background: 'linear-gradient(180deg, #2A2A2A 0%, #1A1A2E 100%)',
-          aspectRatio: '16/9',
-        }}
-      >
-        <span
-          className="text-xs px-2 py-0.5 rounded"
-          style={{ background: '#FF2442', color: '#fff' }}
-        >
-          {post.category}
-        </span>
-      </div>
-
-      <div className="p-3">
-        {/* 标题（含回响注入） */}
-        <h3 className="text-sm font-medium leading-snug mb-1" style={{ color: '#333' }}>
-          <EchoText content={post.headline} echoLevel={echoLevel} />
-        </h3>
-        {/* 摘要 */}
-        <p className="text-xs line-clamp-2 mb-2" style={{ color: '#666' }}>
-          {post.summary}
-        </p>
-        {/* 来源 + 时间 + 互动 */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1.5">
-            <img src="/assets/xiling-news-avatar.png" className="w-4 h-4 rounded-full" />
-            <span className="text-xs" style={{ color: '#999' }}>锡陵晚报</span>
-            <span className="text-xs" style={{ color: '#CCC' }}>·</span>
-            <span className="text-xs" style={{ color: '#CCC' }}>{post.relativeTime}</span>
-          </div>
-          <div className="flex gap-2 text-xs" style={{ color: '#999' }}>
-            <span>♡ {post.likes}</span>
-            <span>💬 {post.comments}</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
-```
-
-### 5.3 锡陵晚报帖子数据结构
-
-```typescript
-// 锡陵晚报帖子（后果呈现载体）
-interface NewsPost {
-  id: string
-  isNewsPost: true
-  headline: string        // 新闻标题（含回响注入点）
-  summary: string         // 摘要（1-2句）
-  category: '教育' | '社会' | '人物' | '评论'
-  relativeTime: string    // 如 "2小时前"
-  likes: number
-  comments: number
-  echoLevel: EchoLevel   // 回响注入等级
-  sourceConsequenceId: string  // 触发此新闻的 ConsequenceEvent ID
-}
-```
-
-### 5.4 回响等级与锡陵晚报内容关系
-
-| echoLevel | 新闻表现 |
-|-----------|---------|
-| 0 | 正常地方民生新闻，与玩家无关 |
-| 2 | 新闻事件与某次评价后果「巧合」吻合 |
-| 3 | 新闻标题借用主角熟悉的措辞/场景 |
-| 4 | 新闻评论区（展开后）出现直接呼应玩家的内容 |
+- 图片区：`16:9` 深色渐变（`#2A2A2A → #1A1A2E`），左下角分类标签（`#FF2442` 红底）
+- 正文区：大标题（`EchoText` 注入）+ 摘要（2行截断）+ 来源行（头像 + 锡陵晚报 + 时间 + 互动数）
 
 ---
 
 ## 6. 信息面板组件
 
-### 6.1 左侧面板（状态/关系/统计）
+### 6.1 左侧面板（LeftPanel）
 
-```tsx
-// src/components/layout/LeftPanel/StatusBar.tsx
-export function StatusBar() {
-  const { imbalanceValue, echoLevel } = useEchoStore()
-  const playerModel = usePlayerStore()
+深色半透明背景，三个子区块：
+- **状态指标**（StatusBar）：失衡值 / 自我认知 / 评价倾向 — 带动态颜色插值进度条
+- **评价统计**（EvalStats）：好评 / 差评 / 极端 数量 + 回响等级徽章
+- **人物关系**（RelationGraph）：每个 NPC 名字 + 关系值进度条（正绿负红）
 
-  return (
-    <div className="p-3 space-y-3">
-      <PanelSection title="🧑 角色状态">
-        <StatusMetric
-          label="自我认知"
-          value={playerModel.selfAwareness}
-          max={100}
-          colorClass="bg-blue-500"
-        />
-        <StatusMetric
-          label="失衡值"
-          value={imbalanceValue}
-          max={200}
-          colorClass={imbalanceValue > 90 ? 'bg-red-500' : 'bg-yellow-500'}
-          showWarning={imbalanceValue > 90}
-        />
-      </PanelSection>
+### 6.2 右侧面板（RightPanel）
 
-      <PanelSection title="👥 关系概览">
-        {Object.entries(playerModel.relationships).map(([npcId, value]) => (
-          <RelationshipBar key={npcId} npcId={npcId} value={value} />
-        ))}
-      </PanelSection>
-
-      <PanelSection title="📊 评价统计">
-        <EvalStats />
-      </PanelSection>
-    </div>
-  )
-}
-```
-
-### 6.2 右侧面板（日志/回响/世界动态）
-
-```tsx
-// src/components/layout/RightPanel/EchoMonitor.tsx
-export function EchoMonitor() {
-  const { echoLevel, imbalanceValue } = useEchoStore()
-
-  const LEVEL_LABELS = ['正常', '涟漪', '波纹', '浪潮', '风暴']
-  const LEVEL_COLORS = ['text-gray-400', 'text-blue-400', 'text-yellow-400', 'text-orange-400', 'text-red-400']
-
-  return (
-    <div className="p-3">
-      <h4 className="text-xs font-medium text-gray-500 mb-2">🌊 回响监测</h4>
-      <div className={`text-sm font-medium ${LEVEL_COLORS[echoLevel]}`}>
-        Lv.{echoLevel} — {LEVEL_LABELS[echoLevel]}
-      </div>
-      <div className="mt-1 h-1.5 bg-zinc-700 rounded-full overflow-hidden">
-        <div
-          className="h-full bg-gradient-to-r from-blue-500 to-red-500 transition-all duration-500"
-          style={{ width: `${(imbalanceValue / 200) * 100}%` }}
-        />
-      </div>
-      {import.meta.env.VITE_GAME_DEBUG === 'true' && (
-        <p className="text-xs text-zinc-600 mt-1">失衡值: {imbalanceValue}/200</p>
-      )}
-    </div>
-  )
-}
-```
+- **回响监测**（EchoMonitor）：大号回响等级数字 + 脉冲指示器 + 失衡进度条（绿→黄→红→紫渐变）
+- **事件日志**（EventLog）：游戏内事件时间线，滚动列表
 
 ---
 
@@ -793,32 +364,39 @@ export function EchoMonitor() {
 
 ```tsx
 // src/hooks/useInteractionTracking.ts
-// 实现 Life is Strange 式的"过程追踪"
-
 export function useInteractionTracking() {
-  const updatePlayerModel = usePlayerStore(s => s.updateInteractionMetrics)
   const hoverStartRef = useRef<number | null>(null)
 
-  const startTracking = useCallback(() => {
-    hoverStartRef.current = Date.now()
-  }, [])
+  const startTracking = useCallback(() => { hoverStartRef.current = Date.now() }, [])
+  const stopTracking  = useCallback(() => { /* 记录悬停时长 → playerStore */ }, [])
 
-  const stopTracking = useCallback(() => {
-    if (hoverStartRef.current !== null) {
-      const duration = Date.now() - hoverStartRef.current
-      hoverStartRef.current = null
-      // 不选择直接离开 = 一次"取消"
-      updatePlayerModel({ type: 'cancel', duration })
-    }
-  }, [updatePlayerModel])
-
-  const recordDecision = useCallback((duration: number) => {
-    hoverStartRef.current = null
-    if (duration < 500) updatePlayerModel({ type: 'fast', duration })
-    else if (duration > 5000) updatePlayerModel({ type: 'slow', duration })
-    else updatePlayerModel({ type: 'normal', duration })
-  }, [updatePlayerModel])
-
-  return { startTracking, stopTracking, recordDecision }
+  return { startTracking, stopTracking }
 }
+```
+
+---
+
+## 8. 全局样式约定
+
+### 8.1 颜色 Token（src/index.css `@theme`）
+
+| 变量 | 值 | 用途 |
+|-----|-----|------|
+| `--color-xhs-primary` | `#FF2442` | active 状态、点赞、角标 |
+| `--color-xhs-primary-bg` | `#FFE8EC` | 玩家消息气泡背景 |
+| `--color-xhs-text-primary` | `#333333` | 正文 |
+| `--color-xhs-text-secondary` | `#999999` | 副文本 |
+| `--color-xhs-bg-primary` | `#F5F5F5` | 页面背景 |
+| `--color-xhs-border` | `#EBEBEB` | 分割线 |
+
+### 8.2 关键全局类
+
+```css
+.xhs-scroll::-webkit-scrollbar { display: none; }       /* 隐藏滚动条 */
+.waterfall-grid { column-count: 2; column-gap: 8px; }   /* 2列瀑布流 */
+.waterfall-item { break-inside: avoid; margin-bottom: 8px; }
+.echo-lv1 { animation: echo-lv1-shimmer 3s infinite; } /* 回响动画 */
+.echo-lv2 { animation: echo-lv2-darken 0.5s forwards; }
+.echo-lv3 { animation: echo-lv3-glitch 2s infinite; }
+.echo-lv4 { animation: echo-lv4-storm 0.8s infinite; }
 ```
