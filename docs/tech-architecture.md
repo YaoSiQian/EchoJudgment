@@ -66,24 +66,23 @@ echo-judgment/
 │   │   │
 │   │   ├── phone/
 │   │   │   ├── PhoneFrame.tsx         # 手机外框容器（竖屏比例锁定）
-│   │   │   ├── AppSwitcher.tsx        # 三App顶部Tab切换
+│   │   │   ├── XHSApp.tsx             # 单 App 架构根组件（含 XHSBottomNav）
+│   │   │   ├── XHSBottomNav.tsx       # 底部 5-Tab 导航（替代原 AppSwitcher）
 │   │   │   │
-│   │   │   ├── wechat/
-│   │   │   │   ├── ChatScreen.tsx     # 会话列表
-│   │   │   │   ├── ConversationView.tsx  # 单人/群聊对话
-│   │   │   │   ├── MessageBubble.tsx  # 消息气泡（含回响注入点）
-│   │   │   │   ├── EvaluationBar.tsx  # 评价按钮区（契机时滑入）
-│   │   │   │   └── DecisionOverlay.tsx  # 抉择全屏覆盖层
+│   │   │   ├── home/                  # 首页（推荐 + 关注 双 Tab）
+│   │   │   │   ├── HomeScreen.tsx     # 顶栏 + 推荐/关注 Tab 切换
+│   │   │   │   ├── DiscoverFeed.tsx   # 推荐 Tab：瀑布流信息流
+│   │   │   │   ├── FollowingFeed.tsx  # 关注 Tab：锡陵晚报 + NPC 帖子
+│   │   │   │   ├── PostCard.tsx       # NPC 社媒帖子卡片
+│   │   │   │   ├── PostDetail.tsx     # 帖子详情页
+│   │   │   │   └── NewsPost.tsx       # 锡陵晚报帖子卡片（后果呈现）
 │   │   │   │
-│   │   │   ├── xiaohongshu/
-│   │   │   │   ├── FeedScreen.tsx     # 信息流（瀑布流）
-│   │   │   │   ├── PostCard.tsx       # 帖子卡片
-│   │   │   │   └── PostDetail.tsx     # 帖子详情页
-│   │   │   │
-│   │   │   └── toutiao/
-│   │   │       ├── NewsScreen.tsx     # 新闻列表
-│   │   │       ├── NewsCard.tsx       # 新闻卡片
-│   │   │       └── NewsDetail.tsx     # 新闻详情页
+│   │   │   └── message/               # 消息板块（原"微信模式"）
+│   │   │       ├── ChatList.tsx       # 消息 Tab：会话列表
+│   │   │       ├── ChatRoom.tsx       # 聊天室（/chatSub/room/single）
+│   │   │       ├── MessageBubble.tsx  # 消息气泡（含回响注入点）
+│   │   │       ├── EvaluationBar.tsx  # 评价按钮区（契机时滑入）
+│   │   │       └── DecisionOverlay.tsx  # 抉择全屏覆盖层
 │   │   │
 │   │   └── shared/
 │   │       ├── StarRating.tsx         # 五星评价组件
@@ -206,7 +205,8 @@ useEvaluation Hook（记录过程时间戳）
 ```typescript
 // types/index.ts 的核心类型
 
-type AppMode = 'wechat' | 'xiaohongshu' | 'toutiao'
+type XHSTab = 'home' | 'note' | 'publish' | 'message' | 'profile'
+type HomeTab = 'discover' | 'following'   // 推荐 | 关注（锡陵晚报）
 type ActNumber = 1 | 2 | 3 | 4
 type EchoLevel = 0 | 1 | 2 | 3 | 4
 type EvalType = 'binary' | 'star5' | 'score10'

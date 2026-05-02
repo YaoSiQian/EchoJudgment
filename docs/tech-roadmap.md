@@ -64,14 +64,16 @@
 
 ---
 
-### Phase 2：主板块 — 微信模式（4周）
+### Phase 2：主板块 — 消息板块（4周）
 
 **目标**：完整的聊天体验，含评价和回响
 
 | 任务 | 说明 | 预估天数 |
 |------|------|---------|
-| ConversationView（会话界面） | 消息列表、滚动、时间戳 | 3天 |
-| MessageBubble（含EchoText） | 微信气泡风格、回响文字注入 | 3天 |
+| XHSBottomNav + XHSApp 架构 | 单 App 5-Tab 底部导航，替代原 AppSwitcher | 2天 |
+| ChatList（会话列表） | 消息 Tab 首屏，NPC 列表 + 未读角标 | 1天 |
+| ChatRoom（/chatSub/room/single） | 消息滚动区、时间戳、进入/退出动画 | 2天 |
+| MessageBubble（含EchoText） | XHS 私聊气泡风格（浅粉 #FFE8EC），回响文字注入 | 3天 |
 | EvaluationBar（滑入/滑出动效） | 三种评价类型，过程时间追踪 | 3天 |
 | DecisionOverlay（抉择覆盖层） | 全屏覆盖、选项按钮 | 2天 |
 | useNarrativeStream Hook | AI流式对话生成的React接入层 | 3天 |
@@ -80,18 +82,18 @@
 
 ---
 
-### Phase 3：主板块 — 社媒与资讯（3周）
+### Phase 3：主板块 — 首页信息流（3周）
 
-**目标**：小红书模式 + 今日头条模式可用
+**目标**：首页推荐（DiscoverFeed）+ 关注/锡陵晚报（FollowingFeed）可用
 
 | 任务 | 说明 | 预估天数 |
 |------|------|---------|
-| FeedScreen（瀑布流） | CSS columns实现、PostCard | 3天 |
-| 社媒AI生成 + 批量调用 | 一次生成4-6条动态 | 2天 |
-| NewsScreen + NewsCard | 真实新闻感排版 | 2天 |
-| 资讯AI生成 | 后果相关新闻生成 | 2天 |
-| AppSwitcher动效 | Framer Motion页面切换 | 1天 |
-| 跨板块回响联动（Lv.2-3） | 社媒+资讯回响内容同步触发 | 3天 |
+| HomeScreen + 推荐/关注 Tab 切换 | 顶栏设计，子 Tab 动画 | 1天 |
+| DiscoverFeed（瀑布流） | CSS columns 实现、PostCard 渐变占位图 | 3天 |
+| 社媒AI生成 + 批量调用 | 一次生成4-6条 NPC 动态 | 2天 |
+| FollowingFeed + NewsPost（锡陵晚报卡片） | 替代今日头条；深色新闻配图风格 | 2天 |
+| 锡陵晚报AI生成 | 后果相关新闻以 XHS 帖子形式生成 | 2天 |
+| 跨板块回响联动（Lv.2-3） | 聊天室 + 信息流 + 锡陵晚报回响内容同步触发 | 3天 |
 
 ---
 
@@ -221,4 +223,5 @@ Phase 2 结束后进行首轮用户测试（5人）：
 | [tech-frontend.md](./tech-frontend.md) | 前端组件与UI架构 |
 | [tech-engine.md](./tech-engine.md) | 游戏引擎与状态机实现 |
 | [tech-roadmap.md](./tech-roadmap.md) | 本文档：开发路线图与MVP定义 |
+| [ui-design-guide.md](./ui-design-guide.md) | XHS H5参考实现的设计规范（颜色/组件/路由） |
 | [GDD.md](./GDD.md) | 游戏设计文档（需求来源） |

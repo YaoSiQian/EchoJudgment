@@ -414,31 +414,38 @@ export const useGameStore = create<GameStore>()(
 // src/store/uiStore.ts
 import { create } from 'zustand'
 
+type XHSTab = 'home' | 'note' | 'publish' | 'message' | 'profile'
+type HomeTab = 'discover' | 'following'  // 关注 Tab 显示锡陵晚报为主
+
 interface UIStore {
-  currentApp: 'wechat' | 'xiaohongshu' | 'toutiao'
-  activeConversationId: string | null
+  currentTab: XHSTab          // 底部导航当前 Tab
+  homeSubTab: HomeTab          // 首页内子 Tab（推荐 / 关注）
+  chatRoomNpcId: string | null // 当前打开的聊天室 NPC ID；null = 显示会话列表
   pendingEvaluation: EvaluationOpportunity | null
   pendingDecision: DecisionNode | null
   isAILoading: boolean
-  animationLock: boolean  // 防止动画期间触发新交互
+  animationLock: boolean       // 防止动画期间触发新交互
 
-  setCurrentApp: (app: UIStore['currentApp']) => void
-  setActiveConversation: (id: string | null) => void
+  setCurrentTab: (tab: XHSTab) => void
+  setHomeSubTab: (tab: HomeTab) => void
+  setChatRoomNpcId: (id: string | null) => void
   setPendingEvaluation: (opp: EvaluationOpportunity | null) => void
   setPendingDecision: (decision: DecisionNode | null) => void
   setAILoading: (loading: boolean) => void
 }
 
 export const useUIStore = create<UIStore>((set) => ({
-  currentApp: 'wechat',
-  activeConversationId: null,
+  currentTab: 'home',
+  homeSubTab: 'discover',
+  chatRoomNpcId: null,
   pendingEvaluation: null,
   pendingDecision: null,
   isAILoading: false,
   animationLock: false,
 
-  setCurrentApp: (app) => set({ currentApp: app }),
-  setActiveConversation: (id) => set({ activeConversationId: id }),
+  setCurrentTab: (tab) => set({ currentTab: tab }),
+  setHomeSubTab: (tab) => set({ homeSubTab: tab }),
+  setChatRoomNpcId: (id) => set({ chatRoomNpcId: id }),
   setPendingEvaluation: (opp) => set({ pendingEvaluation: opp }),
   setPendingDecision: (decision) => set({ pendingDecision: decision }),
   setAILoading: (loading) => set({ isAILoading: loading }),
