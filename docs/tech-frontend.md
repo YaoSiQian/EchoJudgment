@@ -111,8 +111,6 @@ PhoneFrame 是《回响》最关键的技术组件。它必须：
 import styles from './PhoneFrame.module.css'
 
 export function PhoneFrame() {
-  const { currentApp } = useUIStore()
-
   return (
     {/* 外部容器：维持比例 */}
     <div className={styles.phoneContainer}>
@@ -126,7 +124,7 @@ export function PhoneFrame() {
 
         {/* App 内容区 */}
         <div className={styles.appViewport}>
-          <AppSwitcher />
+          <XHSApp />
         </div>
       </div>
     </div>
