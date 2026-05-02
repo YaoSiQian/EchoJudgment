@@ -46,3 +46,5 @@ Thumbs.db
 data/runtime/
 *.db
 *.sqlite
+
+doc_for_ai/*
