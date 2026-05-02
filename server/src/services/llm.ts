@@ -8,8 +8,8 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 config({ path: join(__dirname, '../../../.env') })
 
 const client = new OpenAI({
-  apiKey: process.env.DASHSCOPE_API_KEY,
-  baseURL: 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1',
+  apiKey: 'sk-ceHr0xF6cN0KsCaAB37bD580F27e4209A05cEc1468522815',
+  baseURL: 'https://api.openai-next.com/v1',
 })
 
 const MODEL = 'qwen3-max'

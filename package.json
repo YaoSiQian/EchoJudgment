@@ -9,6 +9,9 @@
   "scripts": {
     "dev": "turbo dev",
     "build": "turbo build",
+    "start:server": "npm --workspace server run start",
+    "start:client": "npm --workspace client run preview",
+    "start": "npm run start:server & npm run start:client",
     "lint": "turbo lint",
     "clean": "turbo clean",
     "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\""
