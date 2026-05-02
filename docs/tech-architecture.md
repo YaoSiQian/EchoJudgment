@@ -41,7 +41,7 @@ echo-judgment/
 ├── src/
 │   ├── app/
 │   │   ├── App.tsx                    # 根组件：布局判断（横屏/竖屏）
-│   │   └── providers.tsx              # QueryClient, Zustand devtools
+│   │   └── providers.tsx              # Vercel AI SDK providers, Zustand devtools
 │   │
 │   ├── components/
 │   │   ├── layout/
@@ -92,16 +92,13 @@ echo-judgment/
 │   │   └── PlayerModel.ts             # 玩家心理模型更新
 │   │
 │   ├── ai/
-│   │   ├── client.ts                  # Anthropic SDK 单例
-│   │   ├── PromptBuilder.ts           # 各场景Prompt构建
-│   │   ├── StreamHandler.ts           # SSE流式响应解析
-│   │   ├── ContextManager.ts          # 上下文窗口压缩管理
-│   │   ├── OutputValidator.ts         # Zod schema验证AI输出
+│   │   ├── client.ts                  # AI 端点配置（Vercel AI SDK，WORKERS_CHAT_API 等）
+│   │   ├── ContextManager.ts          # 对话历史窗口管理 + system prompt 构建
+│   │   ├── OutputValidator.ts         # Zod schema（与 workers/ 共享定义）
 │   │   └── prompts/
-│   │       ├── narrative.ts           # 叙事生成Prompt模板
-│   │       ├── character.ts           # 角色对话Prompt模板
-│   │       ├── echo.ts                # 回响注入Prompt模板
-│   │       └── consequence.ts         # 后果计算Prompt模板
+│   │       ├── narrative.ts           # 批量内容生成 Prompt（社媒 / 新闻）
+│   │       ├── character.ts           # 角色对话 Prompt（含 Echo 注入规则）
+│   │       └── consequence.ts         # 后果推理 Prompt
 │   │
 │   ├── store/
 │   │   ├── gameStore.ts               # 游戏进程状态（幕/场景/时间）
@@ -121,8 +118,8 @@ echo-judgment/
 │   ├── hooks/
 │   │   ├── useEvaluation.ts           # 评价操作 Hook
 │   │   ├── useEchoLevel.ts            # 回响等级订阅
-│   │   ├── useNarrativeStream.ts      # AI叙事流式 Hook
-│   │   └── useInteractionTracking.ts  # 过程数据追踪 Hook
+│   │   ├── useChatRoom.ts             # useChat wrapper，管理 NPC 对话房间状态
+│   │   └── useInteractionTracking.ts  # 过程数据追踪 Hook（结果仅更新本地 PlayerModel）
 │   │
 │   ├── utils/
 │   │   ├── timeUtils.ts               # 游戏内时间系统
@@ -131,11 +128,18 @@ echo-judgment/
 │   └── types/
 │       └── index.ts                   # 所有共享TypeScript类型
 │
+├── workers/                           # Cloudflare Workers 后端
+│   ├── src/
+│   │   ├── index.ts                   # Hono 路由入口（/api/chat, /api/generate）
+│   │   ├── ConversationThread.ts      # Durable Objects 实现（持久化对话历史）
+│   │   └── outputValidator.ts         # Zod schema（与前端 OutputValidator 共享定义）
+│   └── wrangler.toml                  # Workers / DO / D1 绑定配置
+│
 ├── public/
 │   └── assets/
 │       └── phone-bezel.svg            # 手机外框SVG（可选）
 │
-├── .env.local                         # VITE_ANTHROPIC_API_KEY（不提交）
+├── .env.local                         # VITE_API_BASE_URL 本地值（不提交）
 ├── .env.example                       # 环境变量模板
 ├── package.json
 ├── vite.config.ts
@@ -148,36 +152,41 @@ echo-judgment/
 ## 3. 数据流架构
 
 ```
-用户交互（点击评价/选择抉择）
+用户交互（点击评价 / 选择抉择）
     │
     ▼
 useEvaluation Hook（记录过程时间戳）
     │
-    ├──► EvaluationEngine.ts（计算后果权重）
-    │         │
-    │         ▼
-    │    ConsequenceEngine.ts（分配可见性）
-    │         │
-    │         ▼
-    │    EchoEngine.ts（更新失衡值）
+    ├──► EvaluationEngine.ts → ConsequenceEngine.ts → EchoEngine.ts
+    │         （纯本地计算，结果写入 gameStore / echoStore）
     │
-    ├──► playerStore（更新玩家模型）
+    ├──► playerStore（过程数据留在本地，仅更新 PlayerModel，不上报 AI）
     │
-    └──► ai/client.ts（触发后续叙事生成）
+    └──► useChatRoom（useChat wrapper）
               │
-              ▼（流式响应）
-         StreamHandler.ts（解析JSON chunks）
+              ▼  POST /api/chat
+         Cloudflare Workers（Hono）
               │
-              ├──► OutputValidator.ts（Zod验证）
-              │         │ 验证失败
-              │         ▼
-              │    fallback/（降级内容）
+              ├──► ConversationThread（Durable Objects）
+              │         取最近 20 轮对话历史（更早���已压缩）
               │
-              ▼（验证通过）
-         gameStore + npcStore 更新
-              │
-              ▼
-         React 重新渲���（含回响注入）
+              └──► Anthropic API（claude-sonnet-4-6，流式 + Prompt Caching）
+                        │
+                        ▼（SSE 流式 chunks 回传前端）
+                   useChat messages 实时更新 → ChatRoom 渲染
+                        │
+                        ▼（流结束后提取结构化数据）
+                   CharacterResponseSchema.parse（Zod）
+                        │ 验证失败           │ 验证通过
+                        ▼                   ▼
+                   fallback/         gameStore + npcStore 更新
+                                           │
+                                           ▼
+                                     React 重新渲染（含 EchoText CSS 动效）
+
+批量内容（社媒 / 新闻）由 NarrativeEngine 触发，走 POST /api/generate：
+    NarrativeEngine → POST /api/generate → generateObject（Haiku）
+        → Zod 验证（SocialPost / News schema）→ npcStore / gameStore 更新
 ```
 
 ---
@@ -188,11 +197,11 @@ useEvaluation Hook（记录过程时间戳）
 
 | Store | 持久化 | 说明 |
 |-------|--------|------|
-| `gameStore` | ✅ IndexedDB | 游戏进程，跨会话保存 |
-| `playerStore` | ✅ IndexedDB | 玩家模型，跨会话保存 |
-| `npcStore` | ✅ IndexedDB | NPC状态，跨会话保存 |
-| `echoStore` | ✅ IndexedDB | 失衡值/回响等级 |
-| `uiStore` | ❌ 内存 | 纯UI状态（当前App模式、动画锁） |
+| `gameStore` | ✅ localStorage（Zustand persist 默认）| 游戏进程自动保存；命名存档由 SaveSystem 另写入 IndexedDB |
+| `playerStore` | ✅ localStorage | 玩家模型跨会话保存 |
+| `npcStore` | ✅ localStorage | NPC 状态跨会话保存 |
+| `echoStore` | ✅ localStorage | 失衡值 / 回响等级 |
+| `uiStore` | ❌ 内存 | 纯 UI 状态（当前 Tab、动画锁、调试开关） |
 
 ### 4.2 关键状态接口预览
 

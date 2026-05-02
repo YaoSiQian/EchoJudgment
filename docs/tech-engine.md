@@ -392,7 +392,8 @@ export const useGameStore = create<GameStore>()(
     }),
     {
       name: 'echo-game-state',
-      // 只持久化游戏进程状态，UI状态不持久化
+      // storage 未指定 → 默认 localStorage（浏览器内自动持久化）
+      // 命名存档（autosave / 手动）由 SaveSystem.ts 另行写入 IndexedDB（Dexie）
       partialize: (state) => ({
         currentAct: state.currentAct,
         currentScene: state.currentScene,
@@ -425,6 +426,7 @@ interface UIStore {
   pendingDecision: DecisionNode | null
   isAILoading: boolean
   animationLock: boolean       // 防止动画期间触发新交互
+  isDebug: boolean             // 开启调试面板（由 VITE_GAME_DEBUG 初始化）
 
   setCurrentTab: (tab: XHSTab) => void
   setHomeSubTab: (tab: HomeTab) => void
@@ -432,6 +434,7 @@ interface UIStore {
   setPendingEvaluation: (opp: EvaluationOpportunity | null) => void
   setPendingDecision: (decision: DecisionNode | null) => void
   setAILoading: (loading: boolean) => void
+  setDebug: (debug: boolean) => void
 }
 
 export const useUIStore = create<UIStore>((set) => ({
@@ -442,6 +445,7 @@ export const useUIStore = create<UIStore>((set) => ({
   pendingDecision: null,
   isAILoading: false,
   animationLock: false,
+  isDebug: import.meta.env.VITE_GAME_DEBUG === 'true',
 
   setCurrentTab: (tab) => set({ currentTab: tab }),
   setHomeSubTab: (tab) => set({ homeSubTab: tab }),
@@ -449,6 +453,7 @@ export const useUIStore = create<UIStore>((set) => ({
   setPendingEvaluation: (opp) => set({ pendingEvaluation: opp }),
   setPendingDecision: (decision) => set({ pendingDecision: decision }),
   setAILoading: (loading) => set({ isAILoading: loading }),
+  setDebug: (debug) => set({ isDebug: debug }),
 }))
 ```
 
