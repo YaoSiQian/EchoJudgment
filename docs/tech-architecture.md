@@ -17,26 +17,20 @@
 | **手机内样式** | CSS Modules | — | PhoneFrame内部隔离，防止游戏UI样式污染 |
 | **动画** | Framer Motion | 12.x | 滑入/切换动效；回响文字抖动效果 |
 | **全局状态** | Zustand | 5.x | 轻量；原生TypeScript；中间件支持（persist, immer） |
-| **AI调用管理** | TanStack Query | 5.x | AI请求的loading/error/retry状态管理 |
-| **AI SDK** | @anthropic-ai/sdk | latest | 原生流式支持；Prompt Caching；TypeScript优先 |
+| **AI SDK（前端）** | Vercel AI SDK (`ai`) | 4.x | `useChat` 管理流式对话历史和消息列表；`generateObject` 直出 Zod 验证对象；提供商无关 |
+| **AI SDK（Workers）** | @anthropic-ai/sdk + @ai-sdk/anthropic | latest | Workers 端调用 Anthropic；原生流式；Prompt Caching |
 | **本地持久化** | Dexie.js | 4.x | IndexedDB封装；存档系统 |
 | **数据验证** | Zod | 3.x | 验证所有AI输出JSON；运行时类型安全 |
 
-### 1.2 后端（Phase 2+）
+### 1.2 后端
 
 | 层级 | 选择 | 选型理由 |
 |------|------|---------|
-| **运行时** | Cloudflare Workers | 边缘部署；免费套餐足够；V8隔离安全 |
-| **后端框架** | Hono.js | 极轻量；Workers原生支持；TypeScript优先 |
-| **数据库** | Cloudflare D1 | SQLite兼容；Workers原生绑定；无需独立服务器 |
-| **前端托管** | Cloudflare Pages | 与Workers同平台；自动CI/CD |
-
-### 1.3 Phase 0 简化策略
-
-Phase 0（原型验证，2周）使用纯前端：
-- API Key 通过 `import.meta.env.VITE_ANTHROPIC_API_KEY` 注入，`.env.local` 管理
-- **安全警告**：此配置仅用于本地开发，不得部署到公网
-- 存档使用 `localStorage`（Phase 1 迁移到 IndexedDB）
+| **运行时** | Cloudflare Workers | 边缘部署；免费套餐足够；V8 隔离安全 |
+| **对话状态** | Cloudflare Durable Objects | 每个游戏会话持有一个 DO 实例；持久化多轮对话历史；解决 AI 跨请求失忆 |
+| **后端框架** | Hono.js | 极轻量；Workers 原生支持；TypeScript 优先 |
+| **数据库** | Cloudflare D1 | 持久化 DO 状态快照；游戏进程备份；跨设备同步 |
+| **前端托管** | Cloudflare Pages | 与 Workers 同平台；自动 CI/CD |
 
 ---
 
@@ -262,8 +256,7 @@ interface NPCState {
 
 ```bash
 # .env.example
-VITE_ANTHROPIC_API_KEY=        # Phase 0: 直接配置（仅本地开发）
-VITE_API_BASE_URL=             # Phase 2+: Workers代理地址
+VITE_API_BASE_URL=             # Cloudflare Workers 代理地址
 VITE_GAME_DEBUG=false          # 开启后显示调试面板（失衡值/回响等级可视化）
 ```
 
@@ -271,11 +264,5 @@ VITE_GAME_DEBUG=false          # 开启后显示调试面板（失衡值/回响�
 // vite.config.ts 关键配置
 export default defineConfig({
   plugins: [react()],
-  define: {
-    // 防止 API Key 意外泄露到生产构建
-    'import.meta.env.VITE_ANTHROPIC_API_KEY': JSON.stringify(
-      process.env.VITE_ANTHROPIC_API_KEY
-    )
-  }
 })
 ```
