@@ -104,7 +104,7 @@ function App() {
     >
       <header style={{ textAlign: 'center', marginBottom: 24 }}>
         <h1 style={{ fontSize: 28, fontWeight: 300, letterSpacing: 4, margin: 0, color: '#c9cdd4' }}>
-          回声评价
+          回响之评
         </h1>
         <p style={{ fontSize: 12, color: '#6b7280', marginTop: 4, letterSpacing: 2 }}>
           ECHO JUDGMENT

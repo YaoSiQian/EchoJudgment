@@ -8,11 +8,11 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 config({ path: join(__dirname, '../../../.env') })
 
 const client = new OpenAI({
-  apiKey: 'sk-ceHr0xF6cN0KsCaAB37bD580F27e4209A05cEc1468522815',
+  apiKey: process.env.OPENAI_API_KEY,
   baseURL: 'https://api.openai-next.com/v1',
 })
 
-const MODEL = 'qwen3-max'
+const MODEL = 'claude-sonnet-4-6'
 
 export interface NarrativePrompt {
   sceneTitle: string
@@ -27,7 +27,7 @@ export interface NarrativePrompt {
 }
 
 export async function* streamNarrative(prompt: NarrativePrompt): AsyncGenerator<string> {
-  const systemPrompt = `你是一位精通心理惊悚叙事的作家，正在为互动小说《回声评价》撰写剧情。
+  const systemPrompt = `你是一位精通心理惊悚叙事的作家，正在为互动小说《回响之评》撰写剧情。
 
 【系统规则】
 - 你只能描述当前场景下发生的事件和角色的情绪反应。
@@ -158,7 +158,7 @@ export async function generateEchoNarrative(
   sourceCharacter: string,
   playerArchetype: string
 ): Promise<string> {
-  const userPrompt = `生成一段"回荡"叙事文本。在《回声评价》的世界观中，玩家对他人做出的评价会以某种方式反弹回玩家自身。
+  const userPrompt = `生成一段"回荡"叙事文本。在《回响之评》的世界观中，玩家对他人做出的评价会以某种方式反弹回玩家自身。
 
 【回荡类型】${echoType === 'mirror' ? '镜像回荡' : echoType === 'chain' ? '连锁回荡' : echoType === 'cognitive' ? '认知回荡' : '好人困境'}
 【强度】${intensity.toFixed(2)}（0-1）
