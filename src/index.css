@@ -1,0 +1,103 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-xhs-primary: #ff2442;
+  --color-xhs-primary-bg: #ffe8ec;
+  --color-xhs-text-primary: #333333;
+  --color-xhs-text-secondary: #999999;
+  --color-xhs-bg-primary: #f5f5f5;
+  --color-xhs-border: #ebebeb;
+
+  --color-game-bg-1: #0f0f1e;
+  --color-game-bg-2: #1a1a2e;
+  --color-game-bg-3: #16213e;
+  --color-game-accent: #ff2442;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  font-family: -apple-system, BlinkMacSystemFont, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  background: #1a1a2e;
+  color: #e8e8e8;
+  overscroll-behavior: none;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+}
+
+/* Hide scrollbars in phone */
+.xhs-scroll::-webkit-scrollbar {
+  display: none;
+}
+.xhs-scroll {
+  scrollbar-width: none;
+}
+
+/* Waterfall grid */
+.waterfall-grid {
+  column-count: 2;
+  column-gap: 8px;
+}
+.waterfall-item {
+  break-inside: avoid;
+  margin-bottom: 8px;
+  display: block;
+}
+
+/* Echo animations */
+@keyframes echo-lv1-shimmer {
+  0%, 100% { letter-spacing: 0; }
+  50% { letter-spacing: 0.4px; }
+}
+.echo-lv1 {
+  animation: echo-lv1-shimmer 3s ease-in-out infinite;
+  display: inline-block;
+}
+
+@keyframes echo-lv2-darken {
+  0% { color: inherit; }
+  100% { color: #b91c2c; }
+}
+.echo-lv2 {
+  animation: echo-lv2-darken 1.2s ease-in-out forwards;
+}
+
+@keyframes echo-lv3-glitch {
+  0%, 100% { transform: translate(0, 0); text-shadow: none; }
+  20% { transform: translate(-1px, 0); text-shadow: 1px 0 #ff2442, -1px 0 #00fff0; }
+  40% { transform: translate(1px, 0); text-shadow: -1px 0 #ff2442, 1px 0 #00fff0; }
+  60% { transform: translate(0, -1px); text-shadow: none; }
+}
+.echo-lv3 {
+  animation: echo-lv3-glitch 2.4s steps(4) infinite;
+  display: inline-block;
+  color: #c2185b;
+}
+
+@keyframes echo-lv4-storm {
+  0%, 100% { transform: translate(0, 0) scale(1); filter: none; }
+  25% { transform: translate(-1.5px, 0.5px) scale(1.02); filter: hue-rotate(-12deg); }
+  50% { transform: translate(1px, -1px) scale(0.98); filter: hue-rotate(8deg); }
+  75% { transform: translate(0.5px, 1px) scale(1.01); filter: hue-rotate(-6deg); }
+}
+.echo-lv4 {
+  animation: echo-lv4-storm 0.8s ease-in-out infinite;
+  display: inline-block;
+  color: #7b1fa2;
+  font-weight: 600;
+}
+
+/* Typing indicator */
+@keyframes typing-bounce {
+  0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
+  40% { transform: translateY(-4px); opacity: 1; }
+}
+.typing-dot {
+  animation: typing-bounce 1.2s ease-in-out infinite;
+}
